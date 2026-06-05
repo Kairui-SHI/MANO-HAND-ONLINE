@@ -129,7 +129,7 @@ input[type=range]::-webkit-slider-runnable-track{height:3px;border-radius:2px;ba
 <body>
 <div id="canvas-wrap">
   <canvas id="c"></canvas>
-  <div class="hint">拖动旋转 · 滚轮缩放 · 右键平移</div>
+  <div class="hint">drag to rotate · scroll to zoom · right-click to pan</div>
   <div class="axis-lbl">MANO HAND VIEWER · FM-HOI</div>
   <div class="status" id="status">AWAITING MODEL</div>
   <button class="theme-btn" id="theme-toggle" onclick="toggleTheme()" title="Toggle theme">☾</button>
@@ -916,9 +916,22 @@ function manoStructFromPickleDict(d) {
   const nV = vT.shape[0] | 0;
   const nJ = Jn.shape[0] | 0;
 
-  // kintree_table is int64 (BigInt64Array) in raw MANO. Row 0 = parents.
-  const parents = new Array(nJ);
-  for (let k = 0; k < nJ; k++) parents[k] = (k === 0) ? -1 : Number(kt.data[k]);
+  // MANO right-hand parents are a fixed constant of the model — much safer to
+  // hardcode than to gamble on the pkl's kintree dtype / memory order.
+  // (Left hand is the same structure.)
+  const MANO_PARENTS = [-1, 0, 1, 2, 0, 4, 5, 0, 7, 8, 0, 10, 11, 0, 13, 14];
+  const parents = MANO_PARENTS.slice();
+
+  // Log what pkl actually gave us, for diagnosis if anything else looks off.
+  const ktSnapshot = kt && kt.data
+    ? Array.from(kt.data).slice(0, 32).map(v => Number(v))
+    : null;
+  console.log('[mano] kintree pkl readout:', {
+    shape:  kt && kt.shape,
+    dtype:  kt && kt.dtype && kt.dtype.typestr,
+    length: kt && kt.data && kt.data.length,
+    first32: ktSnapshot,
+  });
 
   // Faces must be Uint32Array (Three.js BufferAttribute(index, 1) supports it).
   let faces;
