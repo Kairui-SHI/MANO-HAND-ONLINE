@@ -1,0 +1,1064 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MANO Hand Viewer</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500&family=Syne:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0a0a0f;
+  --panel:#0d0d14;
+  --soft:#11111a;
+  --soft-2:#13131e;
+  --border:#262638;
+  --border-2:#363650;
+  --text:#f0eee8;
+  --text-2:#cdcde0;
+  --text-dim:#9a9ab8;
+  --text-mute:#7878a0;
+  --accent:#9a8aff;
+  --accent-soft:rgba(154,138,255,.18);
+  --track:#1a1a28;
+  --scene:radial-gradient(ellipse at 40% 50%,#0f1a2e 0%,#07090f 70%);
+  --modal-bg:rgba(4,4,8,.72);
+  --code-bg:#11111a;
+  --shadow:0 24px 80px rgba(0,0,0,.55);
+  color-scheme:dark;
+}
+body.light{
+  --bg:#f5f3ed;
+  --panel:#ffffff;
+  --soft:#f0eee5;
+  --soft-2:#e6e3d8;
+  --border:#cfcabc;
+  --border-2:#b6b0a0;
+  --text:#1f1a17;
+  --text-2:#3a342e;
+  --text-dim:#5a544c;
+  --text-mute:#807a70;
+  --accent:#5b48d4;
+  --accent-soft:rgba(91,72,212,.16);
+  --track:#dad6c8;
+  --scene:radial-gradient(ellipse at 40% 50%,#ece8dd 0%,#bdb8aa 70%);
+  --modal-bg:rgba(40,36,30,.42);
+  --code-bg:#ece8dd;
+  --shadow:0 24px 80px rgba(0,0,0,.18);
+  color-scheme:light;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;background:var(--bg)}
+body{display:flex;font-family:'JetBrains Mono',monospace;color:var(--text);transition:background .25s,color .25s}
+#canvas-wrap{flex:1;position:relative;background:var(--scene);transition:background .25s}
+canvas{display:block;width:100%!important;height:100%!important}
+#panel{width:360px;background:var(--panel);border-left:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column;flex-shrink:0;transition:background .25s,border-color .25s}
+#panel::-webkit-scrollbar{width:4px}
+#panel::-webkit-scrollbar-track{background:var(--panel)}
+#panel::-webkit-scrollbar-thumb{background:var(--border-2);border-radius:2px}
+.panel-header{padding:20px 18px 14px;border-bottom:1px solid var(--border);background:var(--panel);position:sticky;top:0;z-index:10}
+.panel-title{font-family:'Syne',sans-serif;font-size:15px;font-weight:700;letter-spacing:.18em;color:var(--accent);text-transform:uppercase}
+.panel-sub{font-size:12px;color:var(--text-mute);margin-top:4px;letter-spacing:.06em}
+.finger-block{border-bottom:1px solid var(--border)}
+.finger-head{padding:12px 18px 7px;display:flex;align-items:center;gap:9px;cursor:pointer;user-select:none}
+.finger-head:hover{background:var(--soft)}
+.finger-label{font-family:'Syne',sans-serif;font-size:13px;font-weight:600;letter-spacing:.12em;flex:1;color:var(--text)}
+.chev{font-size:11px;color:var(--text-mute);transition:transform .15s}
+.chev.open{transform:rotate(90deg)}
+.dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.joint-group{padding:0 18px 12px;display:none}
+.joint-group.open{display:block}
+.joint-title{font-size:11px;color:var(--text-dim);letter-spacing:.08em;margin:10px 0 5px;text-transform:uppercase}
+.joint-row{display:flex;align-items:center;gap:9px;margin-bottom:5px}
+.joint-name{font-size:11px;color:var(--text-dim);width:18px;letter-spacing:.04em}
+.slider-wrap{flex:1}
+input[type=range]{-webkit-appearance:none;width:100%;height:3px;background:var(--track);border-radius:2px;outline:none;cursor:pointer;display:block}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;border-radius:50%;cursor:pointer;border:2px solid var(--panel);background:var(--fc);margin-top:-4.5px}
+input[type=range]::-webkit-slider-runnable-track{height:3px;border-radius:2px;background:linear-gradient(to right,var(--fc) var(--pct,50%),var(--track) var(--pct,50%))}
+.val{font-size:11px;color:var(--text-dim);width:46px;text-align:right;flex-shrink:0;font-variant-numeric:tabular-nums}
+.presets{padding:14px 18px;border-top:1px solid var(--border);background:var(--panel);position:sticky;bottom:0}
+.preset-title{font-size:11px;color:var(--text-mute);letter-spacing:.1em;margin-bottom:9px}
+.preset-btns{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.preset-btn{background:var(--soft);border:1px solid var(--border);color:var(--text-2);font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.04em;padding:9px 10px;border-radius:5px;cursor:pointer;transition:all .15s;text-align:center}
+.preset-btn:hover{background:var(--soft-2);color:var(--text);border-color:var(--accent)}
+.preset-btn.full{grid-column:1/-1}
+.toggle-btn{background:var(--soft);border:1px solid var(--border);color:var(--text-dim);font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.04em;padding:9px 10px;border-radius:5px;cursor:pointer;transition:all .15s;text-align:center}
+.toggle-btn:hover{background:var(--soft-2);color:var(--text);border-color:var(--accent)}
+.toggle-btn.active{background:var(--accent-soft);color:var(--text);border-color:var(--accent)}
+.view-section{padding:14px 18px;border-top:1px solid var(--border);background:var(--panel)}
+.view-toggles{display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px;margin-bottom:9px}
+.hint{position:absolute;top:18px;left:50%;transform:translateX(-50%);font-size:11px;color:var(--text-mute);letter-spacing:.06em;pointer-events:none;white-space:nowrap}
+.axis-lbl{position:absolute;bottom:18px;left:150px;font-size:11px;color:var(--text-mute);letter-spacing:.08em}
+.status{position:absolute;top:18px;right:64px;font-size:11px;color:var(--accent);letter-spacing:.06em}
+.status.err{color:#ff6b6b}
+.theme-btn{position:absolute;top:14px;right:16px;background:transparent;border:1px solid var(--border);color:var(--text-dim);font-size:15px;width:34px;height:30px;border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;line-height:1}
+.theme-btn:hover{color:var(--text);border-color:var(--accent)}
+.clear-link{font-size:11px;color:var(--text-mute);letter-spacing:.06em;margin-top:7px;cursor:pointer;display:none;text-decoration:underline}
+.clear-link:hover{color:var(--accent)}
+
+/* Gizmo overlay (bottom-left corner) */
+#gizmo-wrap{position:absolute;bottom:14px;left:14px;width:110px;height:110px;pointer-events:none}
+
+.modal-bg{position:fixed;inset:0;background:var(--modal-bg);backdrop-filter:blur(5px);display:flex;align-items:center;justify-content:center;z-index:100;transition:opacity .25s,visibility .25s}
+.modal-bg.hidden{opacity:0;visibility:hidden;pointer-events:none}
+.modal{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:32px 30px 26px;width:620px;max-width:94vw;box-shadow:var(--shadow)}
+.modal-title{font-family:'Syne',sans-serif;font-size:16px;font-weight:700;letter-spacing:.22em;color:var(--accent);text-transform:uppercase;text-align:center;margin-bottom:7px}
+.modal-sub{font-size:12px;color:var(--text-mute);letter-spacing:.08em;text-align:center;margin-bottom:24px}
+.step{font-size:13.5px;color:var(--text-2);line-height:1.65;letter-spacing:.01em;margin:0 0 14px;display:flex;gap:12px;align-items:flex-start}
+.step-n{flex-shrink:0;width:22px;height:22px;border-radius:50%;background:var(--accent);color:#fff;font-size:11px;display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;margin-top:1px}
+.step code{font-family:'JetBrains Mono',monospace;color:var(--accent);background:var(--code-bg);padding:2px 6px;border-radius:3px;font-size:12px}
+.step a{color:var(--accent);text-decoration:none;border-bottom:1px dashed var(--accent)}
+.step a:hover{filter:brightness(1.15)}
+.dropzone{margin-top:10px;padding:34px;border:1px dashed var(--border-2);border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--soft);cursor:pointer;transition:all .15s}
+.dropzone:hover{border-color:var(--accent);background:var(--soft-2)}
+.dropzone.drag{border-color:var(--accent);background:var(--accent-soft)}
+.dz-title{font-family:'Syne',sans-serif;font-size:14px;font-weight:700;letter-spacing:.18em;color:var(--text);margin-bottom:6px;text-transform:uppercase}
+.dz-sub{font-size:12px;color:var(--text-dim);letter-spacing:.06em}
+
+/* Progress bar inside modal */
+.progress{height:5px;background:var(--track);border-radius:3px;margin-top:16px;overflow:hidden;display:none}
+.progress.show{display:block}
+.progress-bar{height:100%;background:var(--accent);transition:width .12s ease-out;width:0%}
+
+.parse-status{font-size:12px;color:var(--accent);text-align:center;letter-spacing:.05em;min-height:16px;margin-top:11px}
+.parse-status.err{color:#ff6b6b}
+.modal-foot{font-size:11px;color:var(--text-mute);text-align:center;letter-spacing:.03em;margin-top:16px;line-height:1.6}
+</style>
+</head>
+<body>
+<div id="canvas-wrap">
+  <canvas id="c"></canvas>
+  <div class="hint">拖动旋转 · 滚轮缩放 · 右键平移</div>
+  <div class="axis-lbl">MANO HAND VIEWER · FM-HOI</div>
+  <div class="status" id="status">AWAITING MODEL</div>
+  <button class="theme-btn" id="theme-toggle" onclick="toggleTheme()" title="Toggle theme">☾</button>
+  <div id="gizmo-wrap"></div>
+</div>
+
+<div class="modal-bg" id="modal">
+  <div class="modal">
+    <div class="modal-title">MANO Hand Viewer</div>
+    <div class="modal-sub">non-commercial · runs entirely in your browser</div>
+    <div class="step">
+      <span class="step-n">1</span>
+      <span>Go to <a href="https://mano.is.tue.mpg.de" target="_blank" rel="noopener">mano.is.tue.mpg.de</a>, register & accept the non-commercial license, then download the MANO model archive and locate <code>MANO_RIGHT.pkl</code>.</span>
+    </div>
+    <div class="step">
+      <span class="step-n">2</span>
+      <span>Drop <code>MANO_RIGHT.pkl</code> below — it's parsed locally; nothing is uploaded. Cached in your browser so you only do this once.</span>
+    </div>
+    <div class="dropzone" id="dropzone">
+      <div class="dz-title">Drop MANO_RIGHT.pkl</div>
+      <div class="dz-sub">or click to choose · also accepts mano_right.bin</div>
+      <input type="file" id="fileInput" accept=".pkl,.bin" hidden>
+    </div>
+    <div class="progress" id="progress"><div class="progress-bar" id="progress-bar"></div></div>
+    <div class="parse-status" id="parse-status"></div>
+    <div class="modal-foot">MANO is © Max-Planck. This viewer code only — model never leaves your machine.</div>
+  </div>
+</div>
+<div id="panel">
+  <div class="panel-header">
+    <div class="panel-title">MANO Pose</div>
+    <div class="panel-sub">Right hand · 16 joints · axis-angle</div>
+    <div class="clear-link" id="clear-cache" onclick="clearCacheAndReload()">clear cached model</div>
+  </div>
+  <div id="controls"></div>
+  <div class="view-section">
+    <div class="preset-title">VIEW</div>
+    <div class="view-toggles">
+      <button class="toggle-btn active" id="tg_mesh" onclick="toggleView('mesh')">Mesh</button>
+      <button class="toggle-btn" id="tg_skel" onclick="toggleView('skel')">Skeleton</button>
+      <button class="toggle-btn" id="tg_axes" onclick="toggleView('axes')">Local Axes</button>
+    </div>
+    <button class="preset-btn full" onclick="resetCameraToPalm()">Reset Camera (Palm)</button>
+  </div>
+  <div class="presets">
+    <div class="preset-title">PRESETS</div>
+    <div class="preset-btns">
+      <button class="preset-btn full" onclick="applyPreset('zero')">Zero (Flat Hand)</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+//  MANO joint layout (standard ordering used in MANO_RIGHT.pkl)
+//   0: wrist
+//   1,2,3 : Index   (MCP, PIP, DIP)
+//   4,5,6 : Middle  (MCP, PIP, DIP)
+//   7,8,9 : Pinky   (MCP, PIP, DIP)
+//  10,11,12: Ring   (MCP, PIP, DIP)
+//  13,14,15: Thumb  (MCP, PIP, DIP)
+// ============================================================
+const FINGERS = [
+  { name:'Wrist',  key:'wrist',  color:'#e8e6e0', jointIdx:[0],         labels:['ROOT'] },
+  { name:'Index',  key:'index',  color:'#ffd166', jointIdx:[1,2,3],     labels:['MCP','PIP','DIP'] },
+  { name:'Middle', key:'middle', color:'#06d6a0', jointIdx:[4,5,6],     labels:['MCP','PIP','DIP'] },
+  { name:'Pinky',  key:'pinky',  color:'#4cc9f0', jointIdx:[7,8,9],     labels:['MCP','PIP','DIP'] },
+  { name:'Ring',   key:'ring',   color:'#7c6af5', jointIdx:[10,11,12],  labels:['MCP','PIP','DIP'] },
+  { name:'Thumb',  key:'thumb',  color:'#ff6b6b', jointIdx:[13,14,15],  labels:['MCP','PIP','IP']  },
+];
+
+// pose[i] = [rx, ry, rz] axis-angle for joint i (i=0 is global orient)
+const N_JOINTS = 16;
+const pose = Array.from({length:N_JOINTS}, () => [0,0,0]);
+
+const AX = ['X','Y','Z'];
+const RANGE = Math.PI;  // slider range ±π
+
+// -------- UI construction ----------
+const ctrl = document.getElementById('controls');
+FINGERS.forEach(f => {
+  const block = document.createElement('div');
+  block.className = 'finger-block';
+  const isWrist = f.key === 'wrist';
+  block.innerHTML = `
+    <div class="finger-head" onclick="toggleGroup(this)">
+      <span class="dot" style="background:${f.color}"></span>
+      <span class="finger-label">${f.name}</span>
+      <span class="chev ${isWrist?'open':''}">▶</span>
+    </div>
+    <div class="joint-group ${isWrist?'open':''}"></div>`;
+  const g = block.querySelector('.joint-group');
+  f.jointIdx.forEach((ji, k) => {
+    const title = document.createElement('div');
+    title.className = 'joint-title';
+    title.textContent = f.labels[k];
+    g.appendChild(title);
+    for (let a = 0; a < 3; a++) {
+      const row = document.createElement('div');
+      row.className = 'joint-row';
+      row.innerHTML = `
+        <span class="joint-name">${AX[a]}</span>
+        <div class="slider-wrap">
+          <input type="range" min="${-RANGE}" max="${RANGE}" value="0" step="0.01"
+            id="sl_${ji}_${a}" style="--fc:${f.color};--pct:50%"
+            oninput="onSlider(${ji},${a},+this.value,this)">
+        </div>
+        <span class="val" id="v_${ji}_${a}">0.00</span>`;
+      g.appendChild(row);
+    }
+  });
+  ctrl.appendChild(block);
+});
+
+function toggleGroup(headEl) {
+  const g = headEl.parentElement.querySelector('.joint-group');
+  const c = headEl.querySelector('.chev');
+  g.classList.toggle('open');
+  c.classList.toggle('open');
+}
+
+function onSlider(ji, axis, val, el) {
+  pose[ji][axis] = val;
+  document.getElementById(`v_${ji}_${axis}`).textContent = val.toFixed(2);
+  const pct = ((val + RANGE) / (2 * RANGE) * 100).toFixed(1) + '%';
+  el.style.setProperty('--pct', pct);
+  updateMesh();
+}
+
+function setSlider(ji, axis, val) {
+  pose[ji][axis] = val;
+  const el = document.getElementById(`sl_${ji}_${axis}`);
+  if (el) {
+    el.value = val;
+    document.getElementById(`v_${ji}_${axis}`).textContent = val.toFixed(2);
+    const pct = ((val + RANGE) / (2 * RANGE) * 100).toFixed(1) + '%';
+    el.style.setProperty('--pct', pct);
+  }
+}
+
+// ============================================================
+//  THREE.js scene
+// ============================================================
+const canvas = document.getElementById('c');
+const wrap = document.getElementById('canvas-wrap');
+
+const renderer = new THREE.WebGLRenderer({canvas, antialias:true, alpha:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(35, 1, 0.001, 100);
+camera.position.set(0.15, 0.05, 0.42);
+
+const controls = new THREE.OrbitControls(camera, canvas);
+controls.target.set(0, 0, 0.08);
+controls.enableDamping = true;
+controls.dampingFactor = 0.08;
+
+scene.add(new THREE.AmbientLight(0xffffff, 0.45));
+const kl = new THREE.DirectionalLight(0xd0c8ff, 1.4);
+kl.position.set(0.4, 0.6, 0.5); kl.castShadow = true;
+scene.add(kl);
+const fl = new THREE.DirectionalLight(0xffd4a0, 0.5);
+fl.position.set(-0.4, 0.2, 0.3);
+scene.add(fl);
+const rl = new THREE.DirectionalLight(0x7c6af5, 0.6);
+rl.position.set(0, -0.3, -0.5);
+scene.add(rl);
+
+const skinMat = new THREE.MeshStandardMaterial({
+  color: 0xd49270, roughness: 0.62, metalness: 0.02,
+  flatShading: false,
+});
+
+// -------- Skeleton: 16 colored joint spheres + 15 colored bones --------
+const FINGER_COLOR_OF_JOINT = [
+  0xe8e6e0,                                  // 0  wrist
+  0xffd166, 0xffd166, 0xffd166,              // 1-3  index
+  0x06d6a0, 0x06d6a0, 0x06d6a0,              // 4-6  middle
+  0x4cc9f0, 0x4cc9f0, 0x4cc9f0,              // 7-9  pinky
+  0x7c6af5, 0x7c6af5, 0x7c6af5,              // 10-12 ring
+  0xff6b6b, 0xff6b6b, 0xff6b6b,              // 13-15 thumb
+];
+
+const skeletonGroup = new THREE.Group();
+skeletonGroup.visible = false;
+scene.add(skeletonGroup);
+
+const jointSpheres = [];
+for (let i = 0; i < N_JOINTS; i++) {
+  const r = (i === 0) ? 0.006 : 0.0045;
+  const m = new THREE.Mesh(
+    new THREE.SphereGeometry(r, 16, 12),
+    new THREE.MeshBasicMaterial({ color: FINGER_COLOR_OF_JOINT[i] })
+  );
+  m.renderOrder = 2;
+  jointSpheres.push(m);
+  skeletonGroup.add(m);
+}
+
+const boneGeom = new THREE.BufferGeometry();
+const bonePositions = new Float32Array((N_JOINTS - 1) * 2 * 3);
+const boneColors    = new Float32Array((N_JOINTS - 1) * 2 * 3);
+boneGeom.setAttribute('position', new THREE.BufferAttribute(bonePositions, 3));
+boneGeom.setAttribute('color',    new THREE.BufferAttribute(boneColors, 3));
+boneGeom.attributes.position.setUsage(THREE.DynamicDrawUsage);
+// pre-fill colors (bone i-1 corresponds to non-root joint i)
+// (parents are filled after MANO load — colors here are static per joint index i)
+{
+  const tmp = new THREE.Color();
+  for (let i = 1; i < N_JOINTS; i++) {
+    tmp.setHex(FINGER_COLOR_OF_JOINT[i]);
+    const o = (i - 1) * 6;
+    boneColors[o]   = tmp.r; boneColors[o+1] = tmp.g; boneColors[o+2] = tmp.b;
+    boneColors[o+3] = tmp.r; boneColors[o+4] = tmp.g; boneColors[o+5] = tmp.b;
+  }
+}
+const bones = new THREE.LineSegments(
+  boneGeom,
+  new THREE.LineBasicMaterial({ vertexColors: true, linewidth: 2 })
+);
+bones.renderOrder = 1;
+skeletonGroup.add(bones);
+
+// -------- Local coordinate frames at each joint --------
+const axesGroup = new THREE.Group();
+axesGroup.visible = false;
+scene.add(axesGroup);
+const axesHelpers = [];
+for (let i = 0; i < N_JOINTS; i++) {
+  const ah = new THREE.AxesHelper(0.012);
+  ah.matrixAutoUpdate = false;
+  axesHelpers.push(ah);
+  axesGroup.add(ah);
+}
+const tmpMat4 = new THREE.Matrix4();
+
+// ============================================================
+//  MANO data + LBS
+// ============================================================
+let MANO = null;          // populated after fetch
+let geometry = null;
+let mesh = null;
+let posedV = null;        // Float32Array (n_verts*3) — after pose blend
+let outV = null;          // Float32Array (n_verts*3) — after LBS
+
+function activateMano(manoStruct) {
+  MANO = manoStruct;
+  console.log('[mano] loaded', {
+    nV: MANO.nV, nJ: MANO.nJ,
+    parents: MANO.parents,
+    J_rest: Array.from(MANO.J).map(v => +(+v).toFixed(4)),
+    facesLen: MANO.faces.length,
+    posedirsLen: MANO.posedirs.length,
+  });
+
+  posedV = new Float32Array(MANO.nV * 3);
+  outV   = new Float32Array(MANO.nV * 3);
+
+  geometry = new THREE.BufferGeometry();
+  geometry.setIndex(new THREE.BufferAttribute(MANO.faces, 1));
+  geometry.setAttribute('position', new THREE.BufferAttribute(outV, 3));
+  geometry.attributes.position.setUsage(THREE.DynamicDrawUsage);
+
+  mesh = new THREE.Mesh(geometry, skinMat);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  scene.add(mesh);
+
+  document.getElementById('status').textContent = `LOADED · ${MANO.nV}v ${MANO.faces.length/3}f`;
+  document.getElementById('clear-cache').style.display = 'inline';
+  document.getElementById('modal').classList.add('hidden');
+  updateMesh();
+  resetCameraToPalm();
+}
+
+// Rodrigues axis-angle -> 3x3 rotation (row-major 9-array)
+function rodrigues(rx, ry, rz, out) {
+  const theta = Math.hypot(rx, ry, rz);
+  if (theta < 1e-8) {
+    out[0]=1; out[1]=0; out[2]=0;
+    out[3]=0; out[4]=1; out[5]=0;
+    out[6]=0; out[7]=0; out[8]=1;
+    return;
+  }
+  const k = 1 / theta;
+  const x = rx * k, y = ry * k, z = rz * k;
+  const c = Math.cos(theta), s = Math.sin(theta), C = 1 - c;
+  out[0] = c + x*x*C;     out[1] = x*y*C - z*s;  out[2] = x*z*C + y*s;
+  out[3] = y*x*C + z*s;   out[4] = c + y*y*C;    out[5] = y*z*C - x*s;
+  out[6] = z*x*C - y*s;   out[7] = z*y*C + x*s;  out[8] = c + z*z*C;
+}
+
+// Globals reused per frame
+const R_local = new Float32Array(N_JOINTS * 9);
+const G_rot   = new Float32Array(N_JOINTS * 9);    // world rotation
+const G_trans = new Float32Array(N_JOINTS * 3);    // world translation
+const T_trans = new Float32Array(N_JOINTS * 3);    // bias = G_trans - G_rot @ J_rest
+const poseFeat = new Float32Array(135);            // (nJ-1)*9, R - I
+
+function updateMesh() {
+  if (!MANO) return;
+  const { nV, nJ, parents, vTemplate, weights, posedirs, J } = MANO;
+
+  // 1) Rodrigues for each joint
+  for (let i = 0; i < nJ; i++) {
+    rodrigues(pose[i][0], pose[i][1], pose[i][2], R_local.subarray(i*9, i*9+9));
+  }
+
+  // 2) Pose blendshape feature = flatten(R_i - I) for i=1..15
+  for (let i = 1; i < nJ; i++) {
+    const o = (i - 1) * 9;
+    const r = i * 9;
+    poseFeat[o+0] = R_local[r+0] - 1; poseFeat[o+1] = R_local[r+1];     poseFeat[o+2] = R_local[r+2];
+    poseFeat[o+3] = R_local[r+3];     poseFeat[o+4] = R_local[r+4] - 1; poseFeat[o+5] = R_local[r+5];
+    poseFeat[o+6] = R_local[r+6];     poseFeat[o+7] = R_local[r+7];     poseFeat[o+8] = R_local[r+8] - 1;
+  }
+
+  // 3) v_posed = v_template + posedirs @ pose_feat
+  //    posedirs shape: (nV, 3, 135) row-major  -> index = v*3*135 + c*135 + k
+  const PD = posedirs;
+  for (let v = 0; v < nV; v++) {
+    const base = v * 3 * 135;
+    const vb = v * 3;
+    let dx = 0, dy = 0, dz = 0;
+    const rowX = base;
+    const rowY = base + 135;
+    const rowZ = base + 270;
+    for (let k = 0; k < 135; k++) {
+      const pf = poseFeat[k];
+      dx += PD[rowX + k] * pf;
+      dy += PD[rowY + k] * pf;
+      dz += PD[rowZ + k] * pf;
+    }
+    posedV[vb]     = vTemplate[vb]     + dx;
+    posedV[vb + 1] = vTemplate[vb + 1] + dy;
+    posedV[vb + 2] = vTemplate[vb + 2] + dz;
+  }
+
+  // 4) Forward kinematics. G_i = G_parent * [R_i | (J_i - J_parent)]
+  //    Root translation is J_0.
+  // joint 0
+  for (let m = 0; m < 9; m++) G_rot[m] = R_local[m];
+  G_trans[0] = J[0]; G_trans[1] = J[1]; G_trans[2] = J[2];
+
+  for (let i = 1; i < nJ; i++) {
+    const p = parents[i];
+    const tx = J[i*3]   - J[p*3];
+    const ty = J[i*3+1] - J[p*3+1];
+    const tz = J[i*3+2] - J[p*3+2];
+
+    // local translation in parent frame -> add Gp_rot @ t to Gp_trans
+    const gp = p * 9, gi = i * 9;
+    G_trans[i*3]   = G_trans[p*3]   + G_rot[gp+0]*tx + G_rot[gp+1]*ty + G_rot[gp+2]*tz;
+    G_trans[i*3+1] = G_trans[p*3+1] + G_rot[gp+3]*tx + G_rot[gp+4]*ty + G_rot[gp+5]*tz;
+    G_trans[i*3+2] = G_trans[p*3+2] + G_rot[gp+6]*tx + G_rot[gp+7]*ty + G_rot[gp+8]*tz;
+
+    // G_rot[i] = G_rot[p] @ R_local[i]
+    const A = G_rot, B = R_local;
+    for (let r = 0; r < 3; r++) {
+      for (let c = 0; c < 3; c++) {
+        let s = 0;
+        for (let kk = 0; kk < 3; kk++) {
+          s += A[gp + r*3 + kk] * B[gi + kk*3 + c];
+        }
+        A[gi + r*3 + c] = s;  // careful: writing to same array; safe because we only read parent rows
+      }
+    }
+  }
+
+  // 5) T_i = G_i with rest joint removed:  T_trans = G_trans - G_rot @ J_rest
+  for (let i = 0; i < nJ; i++) {
+    const gi = i * 9;
+    const jx = J[i*3], jy = J[i*3+1], jz = J[i*3+2];
+    T_trans[i*3]   = G_trans[i*3]   - (G_rot[gi+0]*jx + G_rot[gi+1]*jy + G_rot[gi+2]*jz);
+    T_trans[i*3+1] = G_trans[i*3+1] - (G_rot[gi+3]*jx + G_rot[gi+4]*jy + G_rot[gi+5]*jz);
+    T_trans[i*3+2] = G_trans[i*3+2] - (G_rot[gi+6]*jx + G_rot[gi+7]*jy + G_rot[gi+8]*jz);
+  }
+
+  // 6) LBS skinning — only if mesh visible
+  if (mesh.visible) {
+    const W = weights;
+    for (let v = 0; v < nV; v++) {
+      const vb = v * 3;
+      const px = posedV[vb], py = posedV[vb+1], pz = posedV[vb+2];
+      let ox = 0, oy = 0, oz = 0;
+      const wbase = v * nJ;
+      for (let i = 0; i < nJ; i++) {
+        const w = W[wbase + i];
+        if (w === 0) continue;
+        const gi = i * 9;
+        const rx = G_rot[gi+0]*px + G_rot[gi+1]*py + G_rot[gi+2]*pz + T_trans[i*3];
+        const ry = G_rot[gi+3]*px + G_rot[gi+4]*py + G_rot[gi+5]*pz + T_trans[i*3+1];
+        const rz = G_rot[gi+6]*px + G_rot[gi+7]*py + G_rot[gi+8]*pz + T_trans[i*3+2];
+        ox += w * rx; oy += w * ry; oz += w * rz;
+      }
+      outV[vb]   = ox;
+      outV[vb+1] = oy;
+      outV[vb+2] = oz;
+    }
+    geometry.attributes.position.needsUpdate = true;
+    geometry.computeVertexNormals();
+  }
+
+  // 7) Skeleton (joints + bones)
+  if (skeletonGroup.visible) {
+    for (let i = 0; i < nJ; i++) {
+      jointSpheres[i].position.set(G_trans[i*3], G_trans[i*3+1], G_trans[i*3+2]);
+    }
+    for (let i = 1; i < nJ; i++) {
+      const p = parents[i];
+      const o = (i - 1) * 6;
+      bonePositions[o]   = G_trans[p*3];
+      bonePositions[o+1] = G_trans[p*3+1];
+      bonePositions[o+2] = G_trans[p*3+2];
+      bonePositions[o+3] = G_trans[i*3];
+      bonePositions[o+4] = G_trans[i*3+1];
+      bonePositions[o+5] = G_trans[i*3+2];
+    }
+    boneGeom.attributes.position.needsUpdate = true;
+  }
+
+  // 8) Local coordinate frames
+  if (axesGroup.visible) {
+    for (let i = 0; i < nJ; i++) {
+      const gi = i * 9;
+      // three.js Matrix4.set is row-major in argument order, perfect for our G_rot row-major layout
+      tmpMat4.set(
+        G_rot[gi+0], G_rot[gi+1], G_rot[gi+2], G_trans[i*3],
+        G_rot[gi+3], G_rot[gi+4], G_rot[gi+5], G_trans[i*3+1],
+        G_rot[gi+6], G_rot[gi+7], G_rot[gi+8], G_trans[i*3+2],
+        0, 0, 0, 1
+      );
+      axesHelpers[i].matrix.copy(tmpMat4);
+    }
+  }
+}
+
+// ============================================================
+//  Presets
+// ============================================================
+function applyPreset(name) {
+  if (name === 'zero') {
+    for (let i = 0; i < N_JOINTS; i++) for (let a = 0; a < 3; a++) setSlider(i, a, 0);
+  }
+  updateMesh();
+}
+
+// ============================================================
+//  View toggles
+// ============================================================
+function toggleView(which) {
+  if (which === 'mesh') {
+    mesh.visible = !mesh.visible;
+    document.getElementById('tg_mesh').classList.toggle('active', mesh.visible);
+  } else if (which === 'skel') {
+    skeletonGroup.visible = !skeletonGroup.visible;
+    document.getElementById('tg_skel').classList.toggle('active', skeletonGroup.visible);
+  } else if (which === 'axes') {
+    axesGroup.visible = !axesGroup.visible;
+    document.getElementById('tg_axes').classList.toggle('active', axesGroup.visible);
+  }
+  updateMesh();
+}
+
+// ============================================================
+//  Reset camera to face palm center
+//   MANO right hand rest pose: fingers roughly along +Y,
+//   palm normal ≈ cross(side, fwd) where side = pinky_MCP - index_MCP.
+//   We compute these from the *posed* joints so the reset always
+//   tracks the current global orient.
+// ============================================================
+function resetCameraToPalm() {
+  if (!MANO) return;
+  // Use posed joint positions if updateMesh has run, else rest J.
+  const haveG = G_trans.some(v => v !== 0);
+  const get = i => haveG
+    ? [G_trans[i*3], G_trans[i*3+1], G_trans[i*3+2]]
+    : [MANO.J[i*3], MANO.J[i*3+1], MANO.J[i*3+2]];
+
+  const wrist = get(0);
+  const mcp_i = get(1), mcp_m = get(4), mcp_p = get(7), mcp_r = get(10);
+  const center = [
+    (mcp_i[0]+mcp_m[0]+mcp_p[0]+mcp_r[0]) * 0.25,
+    (mcp_i[1]+mcp_m[1]+mcp_p[1]+mcp_r[1]) * 0.25,
+    (mcp_i[2]+mcp_m[2]+mcp_p[2]+mcp_r[2]) * 0.25,
+  ];
+  const sub  = (a,b) => [a[0]-b[0], a[1]-b[1], a[2]-b[2]];
+  const norm = v => { const L = Math.hypot(v[0],v[1],v[2]) || 1; return [v[0]/L,v[1]/L,v[2]/L]; };
+  const cross = (a,b) => [a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1]*b[0]];
+
+  const fwd  = norm(sub(center, wrist));               // wrist → palm (finger direction)
+  const side = norm(sub(mcp_p, mcp_i));                // index → pinky
+  let palmN  = norm(cross(fwd, side));                 // points out of the palm (toward viewer)
+
+  const dist = 0.36;
+  camera.position.set(
+    center[0] + palmN[0] * dist,
+    center[1] + palmN[1] * dist,
+    center[2] + palmN[2] * dist,
+  );
+  camera.up.set(fwd[0], fwd[1], fwd[2]);
+  controls.target.set(center[0], center[1], center[2]);
+  controls.update();
+}
+
+// ============================================================
+//  Camera-tracking XYZ gizmo (bottom-left overlay, own canvas)
+// ============================================================
+const GIZMO_PX = 110;
+const gizmoCanvas = document.createElement('canvas');
+gizmoCanvas.style.width = GIZMO_PX + 'px';
+gizmoCanvas.style.height = GIZMO_PX + 'px';
+gizmoCanvas.style.display = 'block';
+document.getElementById('gizmo-wrap').appendChild(gizmoCanvas);
+
+const gizmoRenderer = new THREE.WebGLRenderer({canvas: gizmoCanvas, antialias: true, alpha: true});
+gizmoRenderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+gizmoRenderer.setSize(GIZMO_PX, GIZMO_PX, false);
+gizmoRenderer.setClearColor(0x000000, 0);
+
+const gizmoScene  = new THREE.Scene();
+const gizmoCamera = new THREE.OrthographicCamera(-1.8, 1.8, 1.8, -1.8, 0.1, 100);
+
+// Axes (X red, Y green, Z blue — same convention as the per-joint Local Axes)
+const gizmoAxes = new THREE.AxesHelper(1.0);
+gizmoScene.add(gizmoAxes);
+
+// XYZ text labels via CanvasTexture sprites, color-matched to axes
+function makeAxisLabel(text, color) {
+  const c = document.createElement('canvas');
+  c.width = 96; c.height = 96;
+  const g = c.getContext('2d');
+  g.clearRect(0, 0, 96, 96);
+  g.font = '700 56px "JetBrains Mono", monospace';
+  g.fillStyle = color;
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillText(text, 48, 52);
+  const tex = new THREE.CanvasTexture(c);
+  tex.minFilter = THREE.LinearFilter;
+  const sp  = new THREE.Sprite(new THREE.SpriteMaterial({map: tex, transparent: true, depthTest: false, depthWrite: false}));
+  sp.scale.set(0.55, 0.55, 1);
+  return sp;
+}
+const lblX = makeAxisLabel('X', '#ff5252'); lblX.position.set(1.45, 0, 0); gizmoScene.add(lblX);
+const lblY = makeAxisLabel('Y', '#52d764'); lblY.position.set(0, 1.45, 0); gizmoScene.add(lblY);
+const lblZ = makeAxisLabel('Z', '#5b8cff'); lblZ.position.set(0, 0, 1.45); gizmoScene.add(lblZ);
+
+const _camDir = new THREE.Vector3();
+function renderGizmo() {
+  // Mirror main camera's viewing direction so the gizmo XYZ rotates exactly as the scene does.
+  camera.getWorldDirection(_camDir);              // direction camera is looking
+  gizmoCamera.position.copy(_camDir).multiplyScalar(-3.5);
+  gizmoCamera.up.copy(camera.up);
+  gizmoCamera.lookAt(0, 0, 0);
+  gizmoRenderer.render(gizmoScene, gizmoCamera);
+}
+
+// ============================================================
+//  Theme toggle (default night)
+// ============================================================
+function applyTheme(name) {
+  document.body.classList.toggle('light', name === 'light');
+  document.getElementById('theme-toggle').textContent = (name === 'light') ? '☀' : '☾';
+}
+function toggleTheme() {
+  const next = document.body.classList.contains('light') ? 'dark' : 'light';
+  applyTheme(next);
+  try { localStorage.setItem('mano-theme', next); } catch {}
+}
+(() => { try { applyTheme(localStorage.getItem('mano-theme') || 'dark'); } catch { applyTheme('dark'); } })();
+
+// ============================================================
+//  Resize / render
+// ============================================================
+function resize() {
+  const w = wrap.clientWidth, h = wrap.clientHeight;
+  renderer.setSize(w, h);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+}
+resize();
+window.addEventListener('resize', resize);
+
+function animate() {
+  requestAnimationFrame(animate);
+  controls.update();
+  renderer.render(scene, camera);
+  renderGizmo();
+}
+animate();
+
+// ============================================================
+//  File parsers: .pkl  AND  .bin → MANO struct
+// ============================================================
+
+// ---- mano_right.bin (single-file format produced by export_mano.py) ----
+function parseManoBin(arrayBuffer) {
+  const dv   = new DataView(arrayBuffer);
+  const hlen = dv.getUint32(0, true);
+  const meta = JSON.parse(new TextDecoder().decode(new Uint8Array(arrayBuffer, 4, hlen)));
+  const payloadOffset = 4 + hlen;  // padded so payload is 4-byte aligned
+  const f32  = new Float32Array(arrayBuffer, payloadOffset);
+  const slice = name => {
+    const a = meta.arrays[name];
+    return f32.subarray(a.offset / 4, a.offset / 4 + a.count);
+  };
+  return {
+    nV: meta.n_verts,
+    nJ: meta.n_joints,
+    parents:   meta.parents,
+    faces:     new Uint32Array(meta.faces),
+    handsMean: new Float32Array(meta.hands_mean),
+    vTemplate: slice('v_template'),
+    weights:   slice('weights'),
+    posedirs:  slice('posedirs'),
+    J:         slice('J'),
+  };
+}
+
+// ---- Minimal Python pickle parser covering MANO_RIGHT.pkl opcodes ----
+//      Protocol 2 file with chumpy.Ch / numpy.ndarray / numpy.dtype /
+//      scipy.sparse.csc_matrix / __builtin__.set. Other opcodes throw.
+class _NDArray {
+  constructor() { this.shape = null; this.dtype = null; this.data = null; }
+}
+class _NPDtype {
+  constructor(typestr) {
+    this.typestr = typestr;
+    // Strip leading byteorder marker (<, >, =, |) so '<f8' / '<u4' / '|i1' all work.
+    const t = (typestr || '').replace(/^[<>=|]/, '');
+    const m = {
+      'f8': Float64Array, 'f4': Float32Array,
+      'i8': BigInt64Array,'i4': Int32Array, 'i2': Int16Array, 'i1': Int8Array,
+      'u8': BigUint64Array,'u4': Uint32Array, 'u2': Uint16Array, 'u1': Uint8Array,
+    };
+    this.ctor = m[t] || null;
+    if (!this.ctor) console.warn('[mano] unknown numpy dtype', typestr);
+  }
+}
+class _Chumpy { constructor(r) { this.r = r; } }
+class _Stub   { constructor(cls) { this.__cls = cls; } }
+const _MARK = Symbol('mark');
+
+async function pickleLoadMano(arrayBuffer, onProgress) {
+  const bytes = new Uint8Array(arrayBuffer);
+  const dv    = new DataView(arrayBuffer);
+  const stack = [];
+  const memo  = new Map();
+  const dec   = new TextDecoder('latin1');
+  const total = bytes.length;
+  let i = 0;
+  let nextYieldAt = 200000;  // bytes
+
+  const u8  = () => bytes[i++];
+  const u16 = () => { const v = dv.getUint16(i, true); i += 2; return v; };
+  const i32 = () => { const v = dv.getInt32 (i, true); i += 4; return v; };
+  const u32 = () => { const v = dv.getUint32(i, true); i += 4; return v; };
+  const nbytes = n => { const b = bytes.subarray(i, i + n); i += n; return b; };
+  const line = () => {
+    const s = i;
+    while (bytes[i] !== 0x0a) i++;
+    const t = dec.decode(bytes.subarray(s, i));
+    i++; return t;
+  };
+
+  function reduce(cls, args) {
+    switch (cls) {
+      case 'numpy.core.multiarray._reconstruct': return new _NDArray();
+      case 'numpy.dtype':                        return new _NPDtype(args[0]);
+      case 'chumpy.ch.Ch':
+      case 'chumpy.reordering.Select':           return new _Chumpy(args[0]);
+      case 'scipy.sparse.csc.csc_matrix':        return new _Stub(cls);
+      case '__builtin__.set':                    return new Set(args[0] || []);
+      default:                                   return new _Stub(cls);
+    }
+  }
+  function newobj(cls, _args) {
+    switch (cls) {
+      case 'numpy.ndarray': return new _NDArray();
+      case 'numpy.dtype':   return new _NPDtype('?');
+      default:              return new _Stub(cls);
+    }
+  }
+  function build(obj, state) {
+    if (obj instanceof _NDArray && Array.isArray(state) && state.length >= 5) {
+      // (version, shape, dtype, fortran_order, raw_bytes)
+      obj.shape = state[1];
+      obj.dtype = state[2];
+      const raw = state[4];
+      if (raw && obj.dtype && obj.dtype.ctor) {
+        // alignment-safe copy
+        const buf = new ArrayBuffer(raw.byteLength);
+        new Uint8Array(buf).set(raw);
+        obj.data = new obj.dtype.ctor(buf);
+      } else {
+        obj.data = raw;
+      }
+      return obj;
+    }
+    // chumpy / dtype / stubs: state usually a __dict__; attach but don't crash
+    if (obj && typeof obj === 'object') obj.__state = state;
+    return obj;
+  }
+
+  while (i < bytes.length) {
+    const op = bytes[i++];
+    switch (op) {
+      case 0x80: i++; break;                               // PROTO
+      case 0x7d: stack.push({}); break;                    // EMPTY_DICT
+      case 0x5d: stack.push([]); break;                    // EMPTY_LIST
+      case 0x29: stack.push([]); break;                    // EMPTY_TUPLE
+      case 0x71: memo.set(u8(), stack[stack.length-1]); break;   // BINPUT
+      case 0x68: stack.push(memo.get(u8())); break;        // BINGET
+      case 0x55: { const n = u8();  stack.push(dec.decode(nbytes(n))); break; }  // SHORT_BINSTRING
+      case 0x54: { const n = u32(); stack.push(nbytes(n)); break; }              // BINSTRING → bytes
+      case 0x4a: stack.push(i32()); break;                 // BININT
+      case 0x4b: stack.push(u8());  break;                 // BININT1
+      case 0x4d: stack.push(u16()); break;                 // BININT2
+      case 0x28: stack.push(_MARK); break;                 // MARK
+      case 0x74: {                                         // TUPLE
+        let m = stack.length;
+        while (--m >= 0 && stack[m] !== _MARK);
+        const t = stack.slice(m + 1); stack.length = m; stack.push(t); break;
+      }
+      case 0x85: { const a = stack.pop(); stack.push([a]); break; }                              // TUPLE1
+      case 0x86: { const b = stack.pop(), a = stack.pop(); stack.push([a, b]); break; }          // TUPLE2
+      case 0x87: { const c = stack.pop(), b = stack.pop(), a = stack.pop(); stack.push([a,b,c]); break; }  // TUPLE3
+      case 0x4e: stack.push(null);  break;                 // NONE
+      case 0x89: stack.push(false); break;                 // NEWFALSE
+      case 0x88: stack.push(true);  break;                 // NEWTRUE
+      case 0x63: { stack.push(line() + '.' + line()); break; }                                   // GLOBAL
+      case 0x52: { const a = stack.pop(), c = stack.pop(); stack.push(reduce(c, a)); break; }    // REDUCE
+      case 0x62: { const s = stack.pop(), o = stack.pop(); stack.push(build(o, s)); break; }     // BUILD
+      case 0x81: { const a = stack.pop(), c = stack.pop(); stack.push(newobj(c, a)); break; }    // NEWOBJ
+      case 0x75: {                                         // SETITEMS
+        let m = stack.length;
+        while (--m >= 0 && stack[m] !== _MARK);
+        const items = stack.slice(m + 1); stack.length = m;
+        const d = stack[stack.length - 1];
+        for (let k = 0; k < items.length; k += 2) d[items[k]] = items[k + 1];
+        break;
+      }
+      case 0x65: {                                         // APPENDS
+        let m = stack.length;
+        while (--m >= 0 && stack[m] !== _MARK);
+        const items = stack.slice(m + 1); stack.length = m;
+        const list = stack[stack.length - 1];
+        for (const it of items) list.push(it);
+        break;
+      }
+      case 0x2e: { if (onProgress) onProgress(1); return stack.pop(); }   // STOP
+      default:
+        throw new Error(`unsupported pickle opcode 0x${op.toString(16)} at byte ${i - 1}`);
+    }
+
+    // Periodic yield + progress, paced by bytes consumed
+    if (i >= nextYieldAt) {
+      nextYieldAt = i + 200000;
+      if (onProgress) onProgress(i / total);
+      await new Promise(r => setTimeout(r));
+    }
+  }
+  throw new Error('pickle stream ended without STOP');
+}
+
+function manoStructFromPickleDict(d) {
+  const unwrap = v => { while (v instanceof _Chumpy) v = v.r; return v; };
+  const need = name => {
+    const v = unwrap(d[name]);
+    if (!(v instanceof _NDArray)) throw new Error(`missing ndarray "${name}"`);
+    return v;
+  };
+  const vT  = need('v_template');
+  const W   = need('weights');
+  const PD  = need('posedirs');
+  const Jn  = need('J');
+  const kt  = need('kintree_table');
+  const fn  = need('f');
+  const hm  = need('hands_mean');
+
+  const nV = vT.shape[0] | 0;
+  const nJ = Jn.shape[0] | 0;
+
+  // kintree_table is int64 (BigInt64Array) in raw MANO. Row 0 = parents.
+  const parents = new Array(nJ);
+  for (let k = 0; k < nJ; k++) parents[k] = (k === 0) ? -1 : Number(kt.data[k]);
+
+  // Faces must be Uint32Array (Three.js BufferAttribute(index, 1) supports it).
+  let faces;
+  if (fn.data instanceof Uint32Array) faces = fn.data;
+  else { faces = new Uint32Array(fn.data.length); for (let k = 0; k < faces.length; k++) faces[k] = Number(fn.data[k]); }
+
+  // Float64 arrays (from MANO 'f8' dtype) are fine to keep as-is — JS reads them as numbers.
+  // Avoiding the f64→f32 copy here saves ~50ms on the slow path.
+  return {
+    nV, nJ, parents, faces,
+    handsMean: hm.data,
+    vTemplate: vT.data,
+    weights:   W.data,
+    posedirs:  PD.data,
+    J:         Jn.data,
+  };
+}
+
+// ============================================================
+//  IndexedDB cache
+// ============================================================
+const DB_NAME = 'mano-viewer', STORE = 'files', KEY = 'model';
+
+function dbOpen() {
+  return new Promise((res, rej) => {
+    const r = indexedDB.open(DB_NAME, 1);
+    r.onupgradeneeded = () => r.result.createObjectStore(STORE);
+    r.onsuccess = () => res(r.result);
+    r.onerror   = () => rej(r.error);
+  });
+}
+async function dbGet() {
+  try {
+    const db = await dbOpen();
+    return await new Promise((res, rej) => {
+      const req = db.transaction(STORE, 'readonly').objectStore(STORE).get(KEY);
+      req.onsuccess = () => res(req.result);
+      req.onerror   = () => rej(req.error);
+    });
+  } catch { return null; }
+}
+async function dbPut(buf) {
+  try {
+    const db = await dbOpen();
+    await new Promise((res, rej) => {
+      const tx = db.transaction(STORE, 'readwrite');
+      tx.objectStore(STORE).put(buf, KEY);
+      tx.oncomplete = res; tx.onerror = () => rej(tx.error);
+    });
+  } catch (e) { console.warn('cache write failed', e); }
+}
+async function dbClear() {
+  try {
+    const db = await dbOpen();
+    await new Promise((res, rej) => {
+      const tx = db.transaction(STORE, 'readwrite');
+      tx.objectStore(STORE).delete(KEY);
+      tx.oncomplete = res; tx.onerror = () => rej(tx.error);
+    });
+  } catch {}
+}
+async function clearCacheAndReload() {
+  await dbClear();
+  location.reload();
+}
+
+// ============================================================
+//  Modal + drop wiring
+// ============================================================
+const psEl  = document.getElementById('parse-status');
+const pbEl  = document.getElementById('progress');
+const pbarEl= document.getElementById('progress-bar');
+function setStatus(msg, err = false) {
+  psEl.textContent = msg;
+  psEl.classList.toggle('err', !!err);
+}
+function setProgress(p) {
+  pbEl.classList.add('show');
+  pbarEl.style.width = (Math.max(0, Math.min(1, p)) * 100).toFixed(1) + '%';
+}
+function hideProgress() {
+  pbEl.classList.remove('show');
+  pbarEl.style.width = '0%';
+}
+
+async function ingest(buf, fromCache = false) {
+  // Sniff: pickle (protocol 2) starts with 0x80; otherwise treat as our .bin format.
+  const sniff = new Uint8Array(buf, 0, 2);
+  const isPickle = sniff[0] === 0x80;
+  setStatus(isPickle
+    ? (fromCache ? 'Restoring cached MANO pickle…' : 'Parsing MANO pickle…')
+    : (fromCache ? 'Restoring cached .bin…' : 'Loading mano_right.bin…'));
+  setProgress(0.02);
+  // Let the browser repaint before we start the heavy work
+  await new Promise(r => setTimeout(r, 30));
+  try {
+    let mano;
+    if (isPickle) {
+      const dict = await pickleLoadMano(buf, p => setProgress(0.02 + p * 0.93));
+      setProgress(0.96);
+      await new Promise(r => setTimeout(r));
+      mano = manoStructFromPickleDict(dict);
+    } else {
+      mano = parseManoBin(buf);
+    }
+    setProgress(1);
+    activateMano(mano);
+    if (!fromCache) await dbPut(buf);
+    setStatus('');
+    hideProgress();
+  } catch (e) {
+    console.error(e);
+    setStatus('Parse failed: ' + e.message, true);
+    hideProgress();
+    if (fromCache) await dbClear();
+  }
+}
+
+(async function init() {
+  // Try cache first
+  const cached = await dbGet();
+  if (cached) {
+    setStatus('Restoring cached model…');
+    await ingest(cached instanceof ArrayBuffer ? cached : await cached.arrayBuffer(), true);
+    return;
+  }
+
+  // Wire dropzone
+  const dz = document.getElementById('dropzone');
+  const fi = document.getElementById('fileInput');
+  dz.addEventListener('click', () => fi.click());
+  fi.addEventListener('change', async e => { const f = e.target.files[0]; if (f) ingest(await f.arrayBuffer()); });
+  ['dragenter','dragover'].forEach(ev =>
+    dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.add('drag'); }));
+  ['dragleave','drop'].forEach(ev =>
+    dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.remove('drag'); }));
+  dz.addEventListener('drop', async e => {
+    const f = e.dataTransfer.files[0]; if (f) ingest(await f.arrayBuffer());
+  });
+})();
+</script>
+</body>
+</html>
