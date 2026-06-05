@@ -7,7 +7,7 @@ dark theme.
 
 ---
 
-## ⚠️ Step 0 — Download MANO yourself (required)
+## Step 0 — Download MANO yourself (required)
 
 > The MANO model is **not** included in this repository, will never be,
 > and is not hosted on the demo page. You **must** obtain it directly
