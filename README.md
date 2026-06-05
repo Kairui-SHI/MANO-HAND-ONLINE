@@ -17,9 +17,8 @@ interactively with sliders.
    python -m http.server 8765
    ```
 
-3. Open `http://localhost:8765/mano_hand_viewer.html` and drop your
-   `MANO_RIGHT.pkl` into the modal. It's cached in your browser, so you only
-   do this once per machine.
+3. Open `http://localhost:8765/` and drop your `MANO_RIGHT.pkl` into the
+   modal. It's cached in your browser, so you only do this once per machine.
 
 ## License
 
