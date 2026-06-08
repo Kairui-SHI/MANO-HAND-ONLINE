@@ -1,5 +1,7 @@
 # Online MANO Hand Viewer
 
+### 🔗 Live demo: **[kairui-shi.github.io/MANO-HAND-ONLINE](https://kairui-shi.github.io/MANO-HAND-ONLINE/)**
+
 A browser-based viewer for the MANO hand model. Parses `MANO_RIGHT.pkl`
 entirely in your browser — nothing is ever uploaded. Pose 16 joints with
 sliders; toggle mesh / colored skeleton / per-joint local axes; light or
