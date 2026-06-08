@@ -1,9 +1,35 @@
 <!DOCTYPE html>
-<html lang="zh">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MANO Hand Viewer</title>
+<title>MANO Hand Viewer — interactive 3D MANO hand model in your browser</title>
+<meta name="description" content="Open-source MANO hand model viewer. Pose 16 joints with sliders, toggle mesh / colored skeleton / per-joint local axes. Runs entirely in the browser — your MANO_RIGHT.pkl never leaves your machine.">
+<meta name="keywords" content="MANO, MANO hand, MANO viewer, MANO model, hand pose, hand model, SMPL, SMPL-X, MPI MANO, 3D hand visualization, hand skeleton, hand kinematics, linear blend skinning, LBS">
+<meta name="author" content="Kairui Shi">
+<link rel="canonical" href="https://kairui-shi.github.io/MANO-HAND-ONLINE/">
+<meta name="robots" content="index,follow">
+<meta property="og:type" content="website">
+<meta property="og:title" content="MANO Hand Viewer">
+<meta property="og:description" content="Interactive browser-based MANO hand model viewer with per-joint sliders. Open source, runs locally.">
+<meta property="og:url" content="https://kairui-shi.github.io/MANO-HAND-ONLINE/">
+<meta property="og:site_name" content="MANO Hand Viewer">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="MANO Hand Viewer">
+<meta name="twitter:description" content="Interactive browser-based MANO hand model viewer with per-joint sliders. Open source, runs locally.">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "MANO Hand Viewer",
+  "description": "Open-source interactive viewer for the MANO hand model. Loads MANO_RIGHT.pkl entirely in the browser and lets you pose 16 joints with sliders.",
+  "applicationCategory": "Visualization",
+  "operatingSystem": "Any (browser-based)",
+  "url": "https://kairui-shi.github.io/MANO-HAND-ONLINE/",
+  "author": { "@type": "Person", "name": "Kairui Shi" },
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+}
+</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500&family=Syne:wght@400;600;700&display=swap" rel="stylesheet">
